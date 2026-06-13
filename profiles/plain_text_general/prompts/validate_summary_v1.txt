@@ -1,0 +1,22 @@
+Validate whether a summary is supported by its evidence.
+
+Return JSON only.
+
+Check for:
+- unsupported claims
+- missing important points
+- softened or distorted meaning
+- entity confusion
+- timeline errors
+- useful accuracy
+
+Return shape:
+{
+  "valid": true,
+  "score": 0.0,
+  "issues": [
+    {"type":"unsupported|missing|distorted|entity_confusion|timeline","note":"short note"}
+  ],
+  "repair_needed": false,
+  "repair_hint": "short hint or empty string"
+}

@@ -1,0 +1,14 @@
+Summarize this plain-text chunk for a context tree.
+
+Return JSON only.
+
+Include only what the text supports. Do not add outside knowledge.
+
+Return shape:
+{
+  "summary": "concise summary",
+  "key_points": ["point"],
+  "open_questions": ["question"],
+  "important_entities": ["entity"],
+  "confidence": 0.0
+}

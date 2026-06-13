@@ -1,0 +1,16 @@
+Assess candidate context nodes for a request.
+
+Return JSON only.
+
+Prefer nodes that directly help answer the request. Reject nodes that are only keyword matches.
+
+Return shape:
+{
+  "selected": [
+    {"node_id":"node_id","relevance":0.0,"use":"direct_evidence","reason":"short reason"}
+  ],
+  "rejected": [
+    {"node_id":"node_id","relevance":0.0,"reason":"short reason"}
+  ],
+  "missing_context": ["missing item"]
+}

@@ -1,0 +1,15 @@
+server:
+  socket_path: "~/.local/run/ycontext/ycontextd.sock"
+
+store:
+  database_path: "~/.local/share/ycontext/ycontext.db"
+  document_path: "~/.local/share/ycontext/documents"
+
+llm:
+  provider: "yllmd"
+  socket_path: "~/.local/run/yllmd/yllmd.sock"
+  model: "local-default"
+
+jobs:
+  workers: 1
+  idle_validation: true

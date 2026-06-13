@@ -1,0 +1,12 @@
+Render a context package into a prompt for an answering LLM.
+
+Return plain text only.
+
+Include:
+- user request
+- relevant context
+- constraints
+- source notes
+- gaps or uncertainty
+
+Keep the prompt compact. Do not answer the request.

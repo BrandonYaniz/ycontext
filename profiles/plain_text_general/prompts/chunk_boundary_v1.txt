@@ -1,0 +1,20 @@
+You are helping split plain text into coherent chunks for later summarization.
+
+Return JSON only.
+
+Goal:
+Decide whether the candidate chunk is coherent and whether the boundary should be accepted or adjusted.
+
+Definitions:
+- A coherent chunk contains a complete idea, scene, argument, explanation, or exchange.
+- A bad start depends on missing context from the prior text.
+- A bad ending cuts off an idea before it completes.
+
+Return shape:
+{
+  "coherent": true,
+  "boundary_quality": "good|acceptable|poor",
+  "recommended_action": "accept|move_start|move_end|split|merge_with_next",
+  "reason": "short reason",
+  "suggested_split_after_character": null
+}

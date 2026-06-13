@@ -1,0 +1,17 @@
+Analyze the request so ycontext can assemble useful context.
+
+Return JSON only.
+
+Do not answer the request. Identify what kind of context is needed.
+
+Return shape:
+{
+  "intent": "short intent",
+  "main_entities": ["entity"],
+  "needed_context_types": ["direct_evidence"],
+  "likely_tags": ["tag"],
+  "requires_source_passages": true,
+  "requires_comparison": false,
+  "requires_timeline": false,
+  "notes": "short note"
+}

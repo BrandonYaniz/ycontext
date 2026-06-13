@@ -1,0 +1,16 @@
+Create a small request-specific context brief from selected nodes.
+
+Return JSON only.
+
+The output will be sent to another LLM. Keep it compact, precise, and grounded in the selected context.
+
+Return shape:
+{
+  "context_brief": "brief context",
+  "answer_constraints": ["constraint"],
+  "supporting_context": [
+    {"role":"direct_evidence","text":"context item","source_nodes":["node_id"]}
+  ],
+  "source_gaps": ["gap"],
+  "confidence": 0.0
+}

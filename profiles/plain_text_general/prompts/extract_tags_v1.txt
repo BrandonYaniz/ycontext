@@ -1,0 +1,18 @@
+Extract typed tags from this text or summary.
+
+Return JSON only.
+
+Tag types:
+- topic: subject discussed directly in the text
+- entity: named person, place, organization, object, work, project, or recurring named concept
+- theme: abstract idea, conflict, motive, or recurring concern
+- action: meaningful event or operation described in the text
+- decision: choice, conclusion, or commitment made in the text
+- question: unresolved issue, open concern, or unknown raised by the text
+
+Return shape:
+{
+  "tags": [
+    {"type":"topic","value":"example","confidence":0.0}
+  ]
+}

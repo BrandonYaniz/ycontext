@@ -1,0 +1,15 @@
+Merge these child summaries into a smaller parent summary.
+
+Return JSON only.
+
+Preserve the important meaning. Do not invent connections. If the child summaries disagree, say so.
+
+Return shape:
+{
+  "summary": "concise merged summary",
+  "key_points": ["point"],
+  "open_questions": ["question"],
+  "important_entities": ["entity"],
+  "conflicts": ["conflict"],
+  "confidence": 0.0
+}
