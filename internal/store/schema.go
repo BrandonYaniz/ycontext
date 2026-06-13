@@ -61,4 +61,7 @@ var schemaStatements = []string{
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	)`,
+	`INSERT INTO schema_version (version)
+		SELECT 1
+		WHERE NOT EXISTS (SELECT 1 FROM schema_version WHERE version = 1)`,
 }

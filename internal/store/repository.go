@@ -1,0 +1,135 @@
+package store
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+)
+
+// Repository provides typed access to persisted ycontext metadata.
+type Repository struct {
+	db *sql.DB
+}
+
+type Workspace struct {
+	ID        string
+	Name      string
+	CreatedAt string
+}
+
+type Corpus struct {
+	ID          string
+	WorkspaceID string
+	Name        string
+	CreatedAt   string
+}
+
+type Source struct {
+	ID           string
+	CorpusID     string
+	Name         string
+	DocumentHash string
+	DocumentSize int64
+	CreatedAt    string
+}
+
+type Job struct {
+	ID        string
+	Kind      string
+	Status    string
+	TargetID  string
+	Error     sql.NullString
+	CreatedAt string
+	UpdatedAt string
+}
+
+// NewRepository returns a repository backed by db.
+func NewRepository(db *sql.DB) (*Repository, error) {
+	if db == nil {
+		return nil, errors.New("database is required")
+	}
+	return &Repository{db: db}, nil
+}
+
+func (r *Repository) CreateWorkspace(ctx context.Context, workspace Workspace) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO workspaces (id, name) VALUES (?, ?)`,
+		workspace.ID,
+		workspace.Name,
+	)
+	return err
+}
+
+func (r *Repository) CreateCorpus(ctx context.Context, corpus Corpus) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO corpora (id, workspace_id, name) VALUES (?, ?, ?)`,
+		corpus.ID,
+		corpus.WorkspaceID,
+		corpus.Name,
+	)
+	return err
+}
+
+func (r *Repository) ListCorpora(ctx context.Context, workspaceID string) ([]Corpus, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, workspace_id, name, created_at
+		 FROM corpora
+		 WHERE workspace_id = ?
+		 ORDER BY created_at, id`,
+		workspaceID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var corpora []Corpus
+	for rows.Next() {
+		var corpus Corpus
+		if err := rows.Scan(&corpus.ID, &corpus.WorkspaceID, &corpus.Name, &corpus.CreatedAt); err != nil {
+			return nil, err
+		}
+		corpora = append(corpora, corpus)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return corpora, nil
+}
+
+func (r *Repository) CreateSource(ctx context.Context, source Source) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO sources (id, corpus_id, name, document_hash, document_size)
+		 VALUES (?, ?, ?, ?, ?)`,
+		source.ID,
+		source.CorpusID,
+		source.Name,
+		source.DocumentHash,
+		source.DocumentSize,
+	)
+	return err
+}
+
+func (r *Repository) CreateJob(ctx context.Context, job Job) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO jobs (id, kind, status, target_id, error)
+		 VALUES (?, ?, ?, ?, ?)`,
+		job.ID,
+		job.Kind,
+		job.Status,
+		job.TargetID,
+		job.Error,
+	)
+	return err
+}
+
+func (r *Repository) GetJob(ctx context.Context, id string) (Job, error) {
+	var job Job
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id, kind, status, target_id, error, created_at, updated_at
+		 FROM jobs
+		 WHERE id = ?`,
+		id,
+	).Scan(&job.ID, &job.Kind, &job.Status, &job.TargetID, &job.Error, &job.CreatedAt, &job.UpdatedAt)
+	return job, err
+}
