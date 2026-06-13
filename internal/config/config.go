@@ -1,113 +1,58 @@
 package config
 
 import (
-	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Config is the root application configuration.
 type Config struct {
-	Server ServerConfig
-	Store  StoreConfig
-	LLM    LLMConfig
-	Jobs   JobsConfig
+	Server ServerConfig `yaml:"server"`
+	Store  StoreConfig  `yaml:"store"`
+	LLM    LLMConfig    `yaml:"llm"`
+	Jobs   JobsConfig   `yaml:"jobs"`
 }
 
 type ServerConfig struct {
-	SocketPath string
+	SocketPath string `yaml:"socket_path"`
 }
 
 type StoreConfig struct {
-	DatabasePath string
-	DocumentPath string
+	DatabasePath string `yaml:"database_path"`
+	DocumentPath string `yaml:"document_path"`
 }
 
 type LLMConfig struct {
-	Provider   string
-	SocketPath string
-	Model      string
+	Provider   string `yaml:"provider"`
+	SocketPath string `yaml:"socket_path"`
+	Model      string `yaml:"model"`
 }
 
 type JobsConfig struct {
-	Workers       int
-	IdleValidation bool
+	Workers        int  `yaml:"workers"`
+	IdleValidation bool `yaml:"idle_validation"`
 }
 
 // Load reads a configuration file with the expected ycontext YAML shape.
 func Load(path string) (Config, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, err
 	}
-	defer f.Close()
 
 	cfg := Default()
-	scanner := bufio.NewScanner(f)
-	section := ""
-
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if strings.HasSuffix(line, ":") && !strings.Contains(line, " ") {
-			section = strings.TrimSuffix(line, ":")
-			continue
-		}
-		key, value, ok := strings.Cut(line, ":")
-		if !ok {
-			return Config{}, fmt.Errorf("invalid config line: %q", line)
-		}
-		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-		value = strings.Trim(value, `"'`)
-
-		switch section {
-		case "server":
-			if key == "socket_path" {
-				cfg.Server.SocketPath = expandHome(value)
-			}
-		case "store":
-			switch key {
-			case "database_path":
-				cfg.Store.DatabasePath = expandHome(value)
-			case "document_path":
-				cfg.Store.DocumentPath = expandHome(value)
-			}
-		case "llm":
-			switch key {
-			case "provider":
-				cfg.LLM.Provider = value
-			case "socket_path":
-				cfg.LLM.SocketPath = expandHome(value)
-			case "model":
-				cfg.LLM.Model = value
-			}
-		case "jobs":
-			switch key {
-			case "workers":
-				n, err := strconv.Atoi(value)
-				if err != nil {
-					return Config{}, fmt.Errorf("invalid jobs.workers value %q: %w", value, err)
-				}
-				cfg.Jobs.Workers = n
-			case "idle_validation":
-				b, err := strconv.ParseBool(value)
-				if err != nil {
-					return Config{}, fmt.Errorf("invalid jobs.idle_validation value %q: %w", value, err)
-				}
-				cfg.Jobs.IdleValidation = b
-			}
-		}
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&cfg); err != nil {
+		return Config{}, fmt.Errorf("decode config: %w", err)
 	}
-	if err := scanner.Err(); err != nil {
-		return Config{}, err
-	}
+	cfg.ResolvePaths()
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
 	}
@@ -131,10 +76,18 @@ func Default() Config {
 			Model:      "local-default",
 		},
 		Jobs: JobsConfig{
-			Workers:       1,
+			Workers:        1,
 			IdleValidation: true,
 		},
 	}
+}
+
+// ResolvePaths expands user-relative paths in the configuration.
+func (c *Config) ResolvePaths() {
+	c.Server.SocketPath = expandHome(c.Server.SocketPath)
+	c.Store.DatabasePath = expandHome(c.Store.DatabasePath)
+	c.Store.DocumentPath = expandHome(c.Store.DocumentPath)
+	c.LLM.SocketPath = expandHome(c.LLM.SocketPath)
 }
 
 // Validate checks the minimal required invariants.

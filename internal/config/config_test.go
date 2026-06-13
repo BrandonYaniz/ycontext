@@ -53,3 +53,42 @@ jobs:
 		t.Fatalf("socket path = %q, want prefix %q", cfg.Server.SocketPath, home)
 	}
 }
+
+func TestLoadUsesDefaultsForOmittedFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ycontext.yaml")
+	content := []byte(`
+jobs:
+  workers: 3
+`)
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Jobs.Workers != 3 {
+		t.Fatalf("workers = %d, want 3", cfg.Jobs.Workers)
+	}
+	if cfg.LLM.Provider != "yllmd" {
+		t.Fatalf("llm provider = %q, want yllmd", cfg.LLM.Provider)
+	}
+}
+
+func TestLoadRejectsUnknownFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ycontext.yaml")
+	content := []byte(`
+server:
+  sock_path: /tmp/ycontext.sock
+`)
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected unknown field error")
+	}
+}
