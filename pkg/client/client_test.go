@@ -37,8 +37,8 @@ func TestDo(t *testing.T) {
 		}
 
 		resp := types.Response{
-			ID:   req.ID,
-			OK:   true,
+			ID: req.ID,
+			OK: true,
 			Result: types.CorpusCreateResult{
 				CorpusID: "cor_123",
 			},
@@ -106,5 +106,111 @@ func TestDoReturnsProtocolError(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestStatus(t *testing.T) {
+	c, done := testClient(t, func(req types.Request) types.Response {
+		if req.Method != "status" {
+			t.Fatalf("method = %q, want status", req.Method)
+		}
+		return types.Response{
+			ID: req.ID,
+			OK: true,
+			Result: types.StatusResult{
+				Version: "26.06.13.01",
+				Ready:   true,
+			},
+		}
+	})
+	defer done()
+
+	status, err := c.Status(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Version == "" || !status.Ready {
+		t.Fatalf("unexpected status: %+v", status)
+	}
+}
+
+func TestCreateWorkspace(t *testing.T) {
+	c, done := testClient(t, func(req types.Request) types.Response {
+		if req.Method != "workspace.create" {
+			t.Fatalf("method = %q, want workspace.create", req.Method)
+		}
+		if req.Params["name"] != "default" {
+			t.Fatalf("params = %+v, want workspace name", req.Params)
+		}
+		return types.Response{
+			ID:     req.ID,
+			OK:     true,
+			Result: types.WorkspaceCreateResult{WorkspaceID: "wrk_123"},
+		}
+	})
+	defer done()
+
+	result, err := c.CreateWorkspace(context.Background(), "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.WorkspaceID != "wrk_123" {
+		t.Fatalf("workspace id = %q, want wrk_123", result.WorkspaceID)
+	}
+}
+
+func TestCreateCorpus(t *testing.T) {
+	c, done := testClient(t, func(req types.Request) types.Response {
+		if req.Method != "corpus.create" {
+			t.Fatalf("method = %q, want corpus.create", req.Method)
+		}
+		if req.Params["workspace_id"] != "wrk_123" || req.Params["name"] != "Moby Dick" {
+			t.Fatalf("params = %+v, want workspace_id and name", req.Params)
+		}
+		return types.Response{
+			ID:     req.ID,
+			OK:     true,
+			Result: types.CorpusCreateResult{CorpusID: "cor_123"},
+		}
+	})
+	defer done()
+
+	result, err := c.CreateCorpus(context.Background(), "wrk_123", "Moby Dick")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.CorpusID != "cor_123" {
+		t.Fatalf("corpus id = %q, want cor_123", result.CorpusID)
+	}
+}
+
+func testClient(t *testing.T, handle func(types.Request) types.Response) (*Client, func()) {
+	t.Helper()
+
+	server, clientConn := net.Pipe()
+	c := &Client{
+		SocketPath: "ignored",
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			return clientConn, nil
+		},
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer server.Close()
+
+		var req types.Request
+		if err := json.NewDecoder(server).Decode(&req); err != nil {
+			t.Errorf("decode request: %v", err)
+			return
+		}
+		if err := json.NewEncoder(server).Encode(handle(req)); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}()
+
+	return c, func() {
+		<-done
+		_ = clientConn.Close()
 	}
 }

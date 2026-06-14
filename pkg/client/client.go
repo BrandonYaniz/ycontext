@@ -10,6 +10,12 @@ import (
 	"github.com/yanizio/ycontext/pkg/types"
 )
 
+const (
+	requestStatus          = "req_status"
+	requestCreateWorkspace = "req_workspace_create"
+	requestCreateCorpus    = "req_corpus_create"
+)
+
 // DialFunc matches net.Dialer.DialContext for testability.
 type DialFunc func(ctx context.Context, network, address string) (net.Conn, error)
 
@@ -73,6 +79,56 @@ func (c *Client) Do(ctx context.Context, req types.Request) (types.Response, err
 		return resp, fmt.Errorf("%s: %s", resp.Error.Code, resp.Error.Message)
 	}
 	return resp, nil
+}
+
+func (c *Client) Status(ctx context.Context) (types.StatusResult, error) {
+	resp, err := c.Do(ctx, types.Request{
+		ID:     requestStatus,
+		Method: "status",
+	})
+	if err != nil {
+		return types.StatusResult{}, err
+	}
+	var result types.StatusResult
+	if err := DecodeResult(resp, &result); err != nil {
+		return types.StatusResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) CreateWorkspace(ctx context.Context, name string) (types.WorkspaceCreateResult, error) {
+	resp, err := c.Do(ctx, types.Request{
+		ID:     requestCreateWorkspace,
+		Method: "workspace.create",
+		Params: map[string]any{"name": name},
+	})
+	if err != nil {
+		return types.WorkspaceCreateResult{}, err
+	}
+	var result types.WorkspaceCreateResult
+	if err := DecodeResult(resp, &result); err != nil {
+		return types.WorkspaceCreateResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) CreateCorpus(ctx context.Context, workspaceID, name string) (types.CorpusCreateResult, error) {
+	resp, err := c.Do(ctx, types.Request{
+		ID:     requestCreateCorpus,
+		Method: "corpus.create",
+		Params: map[string]any{
+			"workspace_id": workspaceID,
+			"name":         name,
+		},
+	})
+	if err != nil {
+		return types.CorpusCreateResult{}, err
+	}
+	var result types.CorpusCreateResult
+	if err := DecodeResult(resp, &result); err != nil {
+		return types.CorpusCreateResult{}, err
+	}
+	return result, nil
 }
 
 // DecodeResult decodes the response result into dst.
