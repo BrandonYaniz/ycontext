@@ -36,6 +36,11 @@ type CorpusCreateResult struct {
 	CorpusID string `json:"corpus_id"`
 }
 
+// WorkspaceCreateResult is the current response payload for workspace creation.
+type WorkspaceCreateResult struct {
+	WorkspaceID string `json:"workspace_id"`
+}
+
 // JobStatusResult is the current response payload for job state queries.
 type JobStatusResult struct {
 	JobID  string `json:"job_id"`

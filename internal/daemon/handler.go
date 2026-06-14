@@ -2,16 +2,37 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
+	"github.com/yanizio/ycontext/internal/id"
+	"github.com/yanizio/ycontext/internal/store"
 	"github.com/yanizio/ycontext/internal/version"
 	"github.com/yanizio/ycontext/pkg/types"
 )
 
+type Repository interface {
+	CreateWorkspace(ctx context.Context, workspace store.Workspace) error
+	CreateCorpus(ctx context.Context, corpus store.Corpus) error
+}
+
+type IDFunc func(prefix string) (string, error)
+
 // Handler dispatches protocol requests to daemon methods.
-type Handler struct{}
+type Handler struct {
+	repository Repository
+	newID      IDFunc
+}
 
 func NewHandler() Handler {
-	return Handler{}
+	return Handler{newID: id.New}
+}
+
+func NewStorageHandler(repository Repository) Handler {
+	return Handler{
+		repository: repository,
+		newID:      id.New,
+	}
 }
 
 func (h Handler) Handle(ctx context.Context, req types.Request) types.Response {
@@ -35,9 +56,106 @@ func (h Handler) Handle(ctx context.Context, req types.Request) types.Response {
 				Ready:   true,
 			},
 		}
+	case "workspace.create":
+		return h.createWorkspace(ctx, req)
+	case "corpus.create":
+		return h.createCorpus(ctx, req)
 	default:
 		return errorResponse(req.ID, "method_not_found", "unknown method: "+req.Method)
 	}
+}
+
+type workspaceCreateParams struct {
+	Name string `json:"name"`
+}
+
+type corpusCreateParams struct {
+	WorkspaceID string `json:"workspace_id"`
+	Name        string `json:"name"`
+}
+
+func (h Handler) createWorkspace(ctx context.Context, req types.Request) types.Response {
+	if h.repository == nil {
+		return errorResponse(req.ID, "unavailable", "storage is not configured")
+	}
+	var params workspaceCreateParams
+	if err := decodeParams(req.Params, &params); err != nil {
+		return errorResponse(req.ID, "invalid_request", err.Error())
+	}
+	if params.Name == "" {
+		return errorResponse(req.ID, "invalid_request", "workspace name is required")
+	}
+
+	workspaceID, err := h.makeID("wrk")
+	if err != nil {
+		return errorResponse(req.ID, "internal_error", err.Error())
+	}
+	if err := h.repository.CreateWorkspace(ctx, store.Workspace{
+		ID:   workspaceID,
+		Name: params.Name,
+	}); err != nil {
+		return errorResponse(req.ID, "internal_error", err.Error())
+	}
+	return types.Response{
+		ID: req.ID,
+		OK: true,
+		Result: types.WorkspaceCreateResult{
+			WorkspaceID: workspaceID,
+		},
+	}
+}
+
+func (h Handler) createCorpus(ctx context.Context, req types.Request) types.Response {
+	if h.repository == nil {
+		return errorResponse(req.ID, "unavailable", "storage is not configured")
+	}
+	var params corpusCreateParams
+	if err := decodeParams(req.Params, &params); err != nil {
+		return errorResponse(req.ID, "invalid_request", err.Error())
+	}
+	if params.WorkspaceID == "" {
+		return errorResponse(req.ID, "invalid_request", "workspace_id is required")
+	}
+	if params.Name == "" {
+		return errorResponse(req.ID, "invalid_request", "corpus name is required")
+	}
+
+	corpusID, err := h.makeID("cor")
+	if err != nil {
+		return errorResponse(req.ID, "internal_error", err.Error())
+	}
+	if err := h.repository.CreateCorpus(ctx, store.Corpus{
+		ID:          corpusID,
+		WorkspaceID: params.WorkspaceID,
+		Name:        params.Name,
+	}); err != nil {
+		return errorResponse(req.ID, "internal_error", err.Error())
+	}
+	return types.Response{
+		ID: req.ID,
+		OK: true,
+		Result: types.CorpusCreateResult{
+			CorpusID: corpusID,
+		},
+	}
+}
+
+func (h Handler) makeID(prefix string) (string, error) {
+	if h.newID == nil {
+		return "", fmt.Errorf("id generator is not configured")
+	}
+	return h.newID(prefix)
+}
+
+func decodeParams(params map[string]any, dst any) error {
+	data, err := json.Marshal(params)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, dst); err != nil {
+		return fmt.Errorf("invalid params: %w", err)
+	}
+	return nil
 }
 
 func errorResponse(id, code, message string) types.Response {
