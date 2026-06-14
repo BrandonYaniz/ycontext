@@ -9,7 +9,6 @@ import (
 
 	"github.com/yanizio/ycontext/internal/config"
 	"github.com/yanizio/ycontext/pkg/client"
-	"github.com/yanizio/ycontext/pkg/types"
 )
 
 func main() {
@@ -36,6 +35,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	switch flags.Arg(0) {
 	case "status":
 		return printStatus(ctx, stdout, cfg)
+	case "workspace":
+		return runWorkspace(ctx, stdout, cfg, flags.Args()[1:])
+	case "corpus":
+		return runCorpus(ctx, stdout, cfg, flags.Args()[1:])
 	case "":
 		return fmt.Errorf("missing command")
 	default:
@@ -52,18 +55,34 @@ func loadConfig(path string) (config.Config, error) {
 
 func printStatus(ctx context.Context, stdout io.Writer, cfg config.Config) error {
 	c := client.New(cfg.Server.SocketPath)
-	resp, err := c.Do(ctx, types.Request{
-		ID:     "req_status",
-		Method: "status",
-	})
+	status, err := c.Status(ctx)
 	if err != nil {
 		return err
 	}
+	fmt.Fprintf(stdout, "version: %s\nready: %t\n", status.Version, status.Ready)
+	return nil
+}
 
-	var status types.StatusResult
-	if err := client.DecodeResult(resp, &status); err != nil {
+func runWorkspace(ctx context.Context, stdout io.Writer, cfg config.Config, args []string) error {
+	if len(args) != 2 || args[0] != "create" {
+		return fmt.Errorf("usage: ycontext workspace create <name>")
+	}
+	result, err := client.New(cfg.Server.SocketPath).CreateWorkspace(ctx, args[1])
+	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "version: %s\nready: %t\n", status.Version, status.Ready)
+	fmt.Fprintf(stdout, "workspace_id: %s\n", result.WorkspaceID)
+	return nil
+}
+
+func runCorpus(ctx context.Context, stdout io.Writer, cfg config.Config, args []string) error {
+	if len(args) != 3 || args[0] != "create" {
+		return fmt.Errorf("usage: ycontext corpus create <workspace_id> <name>")
+	}
+	result, err := client.New(cfg.Server.SocketPath).CreateCorpus(ctx, args[1], args[2])
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "corpus_id: %s\n", result.CorpusID)
 	return nil
 }
