@@ -1,26 +1,45 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/yanizio/ycontext/internal/config"
+	"github.com/yanizio/ycontext/internal/daemon"
+	"github.com/yanizio/ycontext/internal/socket"
 )
 
 func main() {
-	var configPath string
-	flag.StringVar(&configPath, "config", "", "path to the ycontextd config file")
-	flag.Parse()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	cfg, err := loadConfig(configPath)
-	if err != nil {
+	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
 
-	fmt.Fprintf(os.Stdout, "ycontextd skeleton: socket=%s database=%s documents=%s\n",
-		cfg.Server.SocketPath, cfg.Store.DatabasePath, cfg.Store.DocumentPath)
+func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("ycontextd", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	var configPath string
+	flags.StringVar(&configPath, "config", "", "path to the ycontextd config file")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(stdout, "listening on %s\n", cfg.Server.SocketPath)
+	return socket.ListenAndServe(ctx, cfg.Server.SocketPath, daemon.NewHandler())
 }
 
 func loadConfig(path string) (config.Config, error) {
