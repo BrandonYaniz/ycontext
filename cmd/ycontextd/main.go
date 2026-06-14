@@ -12,6 +12,7 @@ import (
 	"github.com/yanizio/ycontext/internal/config"
 	"github.com/yanizio/ycontext/internal/daemon"
 	"github.com/yanizio/ycontext/internal/socket"
+	"github.com/yanizio/ycontext/internal/store"
 )
 
 func main() {
@@ -38,8 +39,19 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 
+	db, err := store.Open(ctx, cfg.Store.DatabasePath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	repo, err := store.NewRepository(db)
+	if err != nil {
+		return err
+	}
+
 	fmt.Fprintf(stdout, "listening on %s\n", cfg.Server.SocketPath)
-	return socket.ListenAndServe(ctx, cfg.Server.SocketPath, daemon.NewHandler())
+	return socket.ListenAndServe(ctx, cfg.Server.SocketPath, daemon.NewStorageHandler(repo))
 }
 
 func loadConfig(path string) (config.Config, error) {
