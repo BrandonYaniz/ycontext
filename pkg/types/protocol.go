@@ -41,3 +41,9 @@ type JobStatusResult struct {
 	JobID  string `json:"job_id"`
 	Status string `json:"status"`
 }
+
+// StatusResult is returned by the daemon status method.
+type StatusResult struct {
+	Version string `json:"version"`
+	Ready   bool   `json:"ready"`
+}
