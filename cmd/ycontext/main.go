@@ -39,6 +39,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return runWorkspace(ctx, stdout, cfg, flags.Args()[1:])
 	case "corpus":
 		return runCorpus(ctx, stdout, cfg, flags.Args()[1:])
+	case "source":
+		return runSource(ctx, stdout, cfg, flags.Args()[1:])
 	case "":
 		return fmt.Errorf("missing command")
 	default:
@@ -84,5 +86,21 @@ func runCorpus(ctx context.Context, stdout io.Writer, cfg config.Config, args []
 		return err
 	}
 	fmt.Fprintf(stdout, "corpus_id: %s\n", result.CorpusID)
+	return nil
+}
+
+func runSource(ctx context.Context, stdout io.Writer, cfg config.Config, args []string) error {
+	if len(args) != 4 || args[0] != "add-text" {
+		return fmt.Errorf("usage: ycontext source add-text <corpus_id> <name> <file>")
+	}
+	content, err := os.ReadFile(args[3])
+	if err != nil {
+		return err
+	}
+	result, err := client.New(cfg.Server.SocketPath).AddTextSource(ctx, args[1], args[2], string(content))
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "source_id: %s\ndocument_hash: %s\ndocument_size: %d\n", result.SourceID, result.DocumentHash, result.DocumentSize)
 	return nil
 }

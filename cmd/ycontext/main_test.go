@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/yanizio/ycontext/internal/daemon"
+	"github.com/yanizio/ycontext/internal/document"
 	"github.com/yanizio/ycontext/internal/socket"
 	"github.com/yanizio/ycontext/internal/store"
 )
@@ -80,6 +81,46 @@ func TestRunCreatesWorkspaceAndCorpus(t *testing.T) {
 	}
 }
 
+func TestRunAddsTextSource(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, configPath, stop := startStorageBackedDaemon(t, ctx)
+	defer stop()
+
+	var workspaceOut bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run(ctx, []string{"-config", configPath, "workspace", "create", "default"}, &workspaceOut, &stderr); err != nil {
+		t.Fatalf("workspace create: %v stderr=%q", err, stderr.String())
+	}
+	workspaceID := strings.TrimPrefix(strings.TrimSpace(workspaceOut.String()), "workspace_id: ")
+
+	var corpusOut bytes.Buffer
+	stderr.Reset()
+	if err := run(ctx, []string{"-config", configPath, "corpus", "create", workspaceID, "Moby Dick"}, &corpusOut, &stderr); err != nil {
+		t.Fatalf("corpus create: %v stderr=%q", err, stderr.String())
+	}
+	corpusID := strings.TrimPrefix(strings.TrimSpace(corpusOut.String()), "corpus_id: ")
+
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "chapter-1.txt")
+	if err := os.WriteFile(sourcePath, []byte("Call me Ishmael.\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var sourceOut bytes.Buffer
+	stderr.Reset()
+	if err := run(ctx, []string{"-config", configPath, "source", "add-text", corpusID, "chapter-1.txt", sourcePath}, &sourceOut, &stderr); err != nil {
+		t.Fatalf("source add-text: %v stderr=%q", err, stderr.String())
+	}
+	if !strings.Contains(sourceOut.String(), "source_id: src_") {
+		t.Fatalf("source output = %q, want src_ id", sourceOut.String())
+	}
+	if !strings.Contains(sourceOut.String(), "document_size: 17") {
+		t.Fatalf("source output = %q, want document size", sourceOut.String())
+	}
+}
+
 func waitForSocket(t *testing.T, path string) {
 	t.Helper()
 
@@ -120,7 +161,7 @@ func startStorageBackedDaemon(t *testing.T, ctx context.Context) (string, string
 	serverCtx, cancel := context.WithCancel(ctx)
 	errs := make(chan error, 1)
 	go func() {
-		errs <- socket.ListenAndServe(serverCtx, socketPath, daemon.NewStorageHandler(repo))
+		errs <- socket.ListenAndServe(serverCtx, socketPath, daemon.NewIngestHandler(repo, document.NewStore(filepath.Join(dir, "documents"))))
 	}()
 	waitForSocket(t, socketPath)
 
