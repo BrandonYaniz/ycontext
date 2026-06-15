@@ -184,6 +184,35 @@ func TestCreateCorpus(t *testing.T) {
 	}
 }
 
+func TestAddTextSource(t *testing.T) {
+	c, done := testClient(t, func(req types.Request) types.Response {
+		if req.Method != "source.add_text" {
+			t.Fatalf("method = %q, want source.add_text", req.Method)
+		}
+		if req.Params["corpus_id"] != "cor_123" || req.Params["name"] != "chapter-1.txt" || req.Params["text"] != "Call me Ishmael.\n" {
+			t.Fatalf("params = %+v, want corpus_id, name, and text", req.Params)
+		}
+		return types.Response{
+			ID: req.ID,
+			OK: true,
+			Result: types.SourceAddResult{
+				SourceID:     "src_123",
+				DocumentHash: "7376efceaacd85bc1d8dbfdaf8a17fb7c5ce4a31d2be652a52a8e834e09c4c7e",
+				DocumentSize: 17,
+			},
+		}
+	})
+	defer done()
+
+	result, err := c.AddTextSource(context.Background(), "cor_123", "chapter-1.txt", "Call me Ishmael.\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.SourceID != "src_123" || result.DocumentSize != 17 {
+		t.Fatalf("unexpected source result: %+v", result)
+	}
+}
+
 func testClient(t *testing.T, handle func(types.Request) types.Response) (*Client, func()) {
 	t.Helper()
 

@@ -14,6 +14,7 @@ const (
 	requestStatus          = "req_status"
 	requestCreateWorkspace = "req_workspace_create"
 	requestCreateCorpus    = "req_corpus_create"
+	requestAddTextSource   = "req_source_add_text"
 )
 
 // DialFunc matches net.Dialer.DialContext for testability.
@@ -127,6 +128,26 @@ func (c *Client) CreateCorpus(ctx context.Context, workspaceID, name string) (ty
 	var result types.CorpusCreateResult
 	if err := DecodeResult(resp, &result); err != nil {
 		return types.CorpusCreateResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) AddTextSource(ctx context.Context, corpusID, name, text string) (types.SourceAddResult, error) {
+	resp, err := c.Do(ctx, types.Request{
+		ID:     requestAddTextSource,
+		Method: "source.add_text",
+		Params: map[string]any{
+			"corpus_id": corpusID,
+			"name":      name,
+			"text":      text,
+		},
+	})
+	if err != nil {
+		return types.SourceAddResult{}, err
+	}
+	var result types.SourceAddResult
+	if err := DecodeResult(resp, &result); err != nil {
+		return types.SourceAddResult{}, err
 	}
 	return result, nil
 }
