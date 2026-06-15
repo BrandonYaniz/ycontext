@@ -36,6 +36,13 @@ type CorpusCreateResult struct {
 	CorpusID string `json:"corpus_id"`
 }
 
+// SourceAddResult is the current response payload for adding a source.
+type SourceAddResult struct {
+	SourceID     string `json:"source_id"`
+	DocumentHash string `json:"document_hash"`
+	DocumentSize int64  `json:"document_size"`
+}
+
 // WorkspaceCreateResult is the current response payload for workspace creation.
 type WorkspaceCreateResult struct {
 	WorkspaceID string `json:"workspace_id"`

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/yanizio/ycontext/internal/document"
 	"github.com/yanizio/ycontext/internal/id"
 	"github.com/yanizio/ycontext/internal/store"
 	"github.com/yanizio/ycontext/internal/version"
@@ -14,6 +15,11 @@ import (
 type Repository interface {
 	CreateWorkspace(ctx context.Context, workspace store.Workspace) error
 	CreateCorpus(ctx context.Context, corpus store.Corpus) error
+	CreateSource(ctx context.Context, source store.Source) error
+}
+
+type DocumentStore interface {
+	Put(ctx context.Context, content []byte) (document.Document, error)
 }
 
 type IDFunc func(prefix string) (string, error)
@@ -21,6 +27,7 @@ type IDFunc func(prefix string) (string, error)
 // Handler dispatches protocol requests to daemon methods.
 type Handler struct {
 	repository Repository
+	documents  DocumentStore
 	newID      IDFunc
 }
 
@@ -31,6 +38,14 @@ func NewHandler() Handler {
 func NewStorageHandler(repository Repository) Handler {
 	return Handler{
 		repository: repository,
+		newID:      id.New,
+	}
+}
+
+func NewIngestHandler(repository Repository, documents DocumentStore) Handler {
+	return Handler{
+		repository: repository,
+		documents:  documents,
 		newID:      id.New,
 	}
 }
@@ -60,6 +75,8 @@ func (h Handler) Handle(ctx context.Context, req types.Request) types.Response {
 		return h.createWorkspace(ctx, req)
 	case "corpus.create":
 		return h.createCorpus(ctx, req)
+	case "source.add_text":
+		return h.addTextSource(ctx, req)
 	default:
 		return errorResponse(req.ID, "method_not_found", "unknown method: "+req.Method)
 	}
@@ -72,6 +89,12 @@ type workspaceCreateParams struct {
 type corpusCreateParams struct {
 	WorkspaceID string `json:"workspace_id"`
 	Name        string `json:"name"`
+}
+
+type sourceAddTextParams struct {
+	CorpusID string `json:"corpus_id"`
+	Name     string `json:"name"`
+	Text     string `json:"text"`
 }
 
 func (h Handler) createWorkspace(ctx context.Context, req types.Request) types.Response {
@@ -136,6 +159,52 @@ func (h Handler) createCorpus(ctx context.Context, req types.Request) types.Resp
 		OK: true,
 		Result: types.CorpusCreateResult{
 			CorpusID: corpusID,
+		},
+	}
+}
+
+func (h Handler) addTextSource(ctx context.Context, req types.Request) types.Response {
+	if h.repository == nil || h.documents == nil {
+		return errorResponse(req.ID, "unavailable", "ingestion storage is not configured")
+	}
+	var params sourceAddTextParams
+	if err := decodeParams(req.Params, &params); err != nil {
+		return errorResponse(req.ID, "invalid_request", err.Error())
+	}
+	if params.CorpusID == "" {
+		return errorResponse(req.ID, "invalid_request", "corpus_id is required")
+	}
+	if params.Name == "" {
+		return errorResponse(req.ID, "invalid_request", "source name is required")
+	}
+	if params.Text == "" {
+		return errorResponse(req.ID, "invalid_request", "source text is required")
+	}
+
+	doc, err := h.documents.Put(ctx, []byte(params.Text))
+	if err != nil {
+		return errorResponse(req.ID, "internal_error", err.Error())
+	}
+	sourceID, err := h.makeID("src")
+	if err != nil {
+		return errorResponse(req.ID, "internal_error", err.Error())
+	}
+	if err := h.repository.CreateSource(ctx, store.Source{
+		ID:           sourceID,
+		CorpusID:     params.CorpusID,
+		Name:         params.Name,
+		DocumentHash: doc.Hash,
+		DocumentSize: doc.Size,
+	}); err != nil {
+		return errorResponse(req.ID, "internal_error", err.Error())
+	}
+	return types.Response{
+		ID: req.ID,
+		OK: true,
+		Result: types.SourceAddResult{
+			SourceID:     sourceID,
+			DocumentHash: doc.Hash,
+			DocumentSize: doc.Size,
 		},
 	}
 }

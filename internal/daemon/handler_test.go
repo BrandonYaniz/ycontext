@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/yanizio/ycontext/internal/document"
 	"github.com/yanizio/ycontext/internal/store"
 	"github.com/yanizio/ycontext/pkg/types"
 )
@@ -149,6 +150,90 @@ func TestHandleCreateValidatesParams(t *testing.T) {
 	}
 }
 
+func TestHandleAddsTextSource(t *testing.T) {
+	repo := &fakeRepository{}
+	docs := &fakeDocumentStore{
+		document: document.Document{
+			Hash: "7376efceaacd85bc1d8dbfdaf8a17fb7c5ce4a31d2be652a52a8e834e09c4c7e",
+			Size: 17,
+		},
+	}
+	handler := Handler{
+		repository: repo,
+		documents:  docs,
+		newID: func(prefix string) (string, error) {
+			return prefix + "_123", nil
+		},
+	}
+
+	resp := handler.Handle(context.Background(), types.Request{
+		ID:     "req_1",
+		Method: "source.add_text",
+		Params: map[string]any{
+			"corpus_id": "cor_123",
+			"name":      "chapter-1.txt",
+			"text":      "Call me Ishmael.\n",
+		},
+	})
+	if !resp.OK {
+		t.Fatalf("response was not ok: %+v", resp)
+	}
+	if string(docs.content) != "Call me Ishmael.\n" {
+		t.Fatalf("stored content = %q", docs.content)
+	}
+	if repo.source.ID != "src_123" || repo.source.CorpusID != "cor_123" || repo.source.Name != "chapter-1.txt" {
+		t.Fatalf("source was not stored: %+v", repo.source)
+	}
+	if repo.source.DocumentHash != docs.document.Hash || repo.source.DocumentSize != docs.document.Size {
+		t.Fatalf("source document metadata = %+v, want %+v", repo.source, docs.document)
+	}
+
+	var result types.SourceAddResult
+	if err := decodeResult(resp, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.SourceID != "src_123" || result.DocumentHash != docs.document.Hash || result.DocumentSize != docs.document.Size {
+		t.Fatalf("unexpected result: %+v", result)
+	}
+}
+
+func TestHandleAddTextRequiresDocumentStore(t *testing.T) {
+	handler := NewStorageHandler(&fakeRepository{})
+	resp := handler.Handle(context.Background(), types.Request{
+		ID:     "req_1",
+		Method: "source.add_text",
+		Params: map[string]any{
+			"corpus_id": "cor_123",
+			"name":      "chapter-1.txt",
+			"text":      "Call me Ishmael.\n",
+		},
+	})
+	if resp.OK {
+		t.Fatal("expected error response")
+	}
+	if resp.Error == nil || resp.Error.Code != "unavailable" {
+		t.Fatalf("unexpected error: %+v", resp.Error)
+	}
+}
+
+func TestHandleAddTextValidatesParams(t *testing.T) {
+	handler := NewIngestHandler(&fakeRepository{}, &fakeDocumentStore{})
+	resp := handler.Handle(context.Background(), types.Request{
+		ID:     "req_1",
+		Method: "source.add_text",
+		Params: map[string]any{
+			"name": "chapter-1.txt",
+			"text": "Call me Ishmael.\n",
+		},
+	})
+	if resp.OK {
+		t.Fatal("expected error response")
+	}
+	if resp.Error == nil || resp.Error.Code != "invalid_request" {
+		t.Fatalf("unexpected error: %+v", resp.Error)
+	}
+}
+
 func decodeResult(resp types.Response, dst any) error {
 	data, err := json.Marshal(resp.Result)
 	if err != nil {
@@ -160,6 +245,7 @@ func decodeResult(resp types.Response, dst any) error {
 type fakeRepository struct {
 	workspace store.Workspace
 	corpus    store.Corpus
+	source    store.Source
 }
 
 func (r *fakeRepository) CreateWorkspace(ctx context.Context, workspace store.Workspace) error {
@@ -170,4 +256,19 @@ func (r *fakeRepository) CreateWorkspace(ctx context.Context, workspace store.Wo
 func (r *fakeRepository) CreateCorpus(ctx context.Context, corpus store.Corpus) error {
 	r.corpus = corpus
 	return nil
+}
+
+func (r *fakeRepository) CreateSource(ctx context.Context, source store.Source) error {
+	r.source = source
+	return nil
+}
+
+type fakeDocumentStore struct {
+	content  []byte
+	document document.Document
+}
+
+func (s *fakeDocumentStore) Put(ctx context.Context, content []byte) (document.Document, error) {
+	s.content = append([]byte(nil), content...)
+	return s.document, nil
 }
