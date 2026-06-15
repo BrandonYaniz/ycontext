@@ -35,13 +35,14 @@ func TestRunStartsStorageBackedDaemon(t *testing.T) {
 
 	socketPath := filepath.Join(dir, "ycontextd.sock")
 	dbPath := filepath.Join(dir, "data", "ycontext.db")
+	documentPath := filepath.Join(dir, "documents")
 	configPath := filepath.Join(dir, "ycontext.yaml")
 	if err := os.WriteFile(configPath, []byte(`
 server:
   socket_path: `+socketPath+`
 store:
   database_path: `+dbPath+`
-  document_path: `+filepath.Join(dir, "documents")+`
+  document_path: `+documentPath+`
 `), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +65,33 @@ store:
 	if !resp.OK {
 		t.Fatalf("response was not ok: %+v", resp)
 	}
+	workspace, err := client.New(socketPath).CreateWorkspace(ctx, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	corpus, err := client.New(socketPath).CreateCorpus(ctx, workspace.WorkspaceID, "Moby Dick")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceResp, err := client.New(socketPath).Do(ctx, types.Request{
+		ID:     "req_source",
+		Method: "source.add_text",
+		Params: map[string]any{
+			"corpus_id": corpus.CorpusID,
+			"name":      "chapter-1.txt",
+			"text":      "Call me Ishmael.\n",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sourceResp.OK {
+		t.Fatalf("source response was not ok: %+v", sourceResp)
+	}
 	if _, err := os.Stat(dbPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(documentPath); err != nil {
 		t.Fatal(err)
 	}
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/yanizio/ycontext/internal/config"
 	"github.com/yanizio/ycontext/internal/daemon"
+	"github.com/yanizio/ycontext/internal/document"
 	"github.com/yanizio/ycontext/internal/socket"
 	"github.com/yanizio/ycontext/internal/store"
 )
@@ -51,7 +52,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 
 	fmt.Fprintf(stdout, "listening on %s\n", cfg.Server.SocketPath)
-	return socket.ListenAndServe(ctx, cfg.Server.SocketPath, daemon.NewStorageHandler(repo))
+	return socket.ListenAndServe(ctx, cfg.Server.SocketPath, daemon.NewIngestHandler(repo, document.NewStore(cfg.Store.DocumentPath)))
 }
 
 func loadConfig(path string) (config.Config, error) {
