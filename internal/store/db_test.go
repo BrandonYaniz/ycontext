@@ -15,7 +15,7 @@ func TestOpenBootstrapsSQLiteDatabase(t *testing.T) {
 	}
 	defer db.Close()
 
-	for _, table := range []string{"schema_version", "workspaces", "corpora", "sources", "jobs"} {
+	for _, table := range []string{"schema_version", "workspaces", "corpora", "sources", "nodes", "jobs"} {
 		var name string
 		err := db.QueryRowContext(
 			context.Background(),

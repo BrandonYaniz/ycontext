@@ -60,6 +60,43 @@ func TestRepositoryStoresCorporaSourcesAndJobs(t *testing.T) {
 	if sources[0].DocumentSize != 17 {
 		t.Fatalf("document size = %d, want 17", sources[0].DocumentSize)
 	}
+	if err := repo.CreateNode(ctx, Node{
+		ID:        "nod_1",
+		SourceID:  "src_1",
+		Kind:      "rough_chunk",
+		Level:     0,
+		Position:  0,
+		StartByte: 0,
+		EndByte:   8,
+		Text:      "Call me",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.CreateNode(ctx, Node{
+		ID:        "nod_2",
+		SourceID:  "src_1",
+		Kind:      "rough_chunk",
+		Level:     0,
+		Position:  1,
+		StartByte: 8,
+		EndByte:   17,
+		Text:      "Ishmael.",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	nodes, err := repo.ListSourceNodes(ctx, "src_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 2 {
+		t.Fatalf("nodes length = %d, want 2", len(nodes))
+	}
+	if nodes[0].ID != "nod_1" || nodes[0].Position != 0 || nodes[0].Text != "Call me" {
+		t.Fatalf("unexpected first node: %+v", nodes[0])
+	}
+	if nodes[1].ID != "nod_2" || nodes[1].StartByte != 8 || nodes[1].EndByte != 17 {
+		t.Fatalf("unexpected second node: %+v", nodes[1])
+	}
 
 	if err := repo.CreateJob(ctx, Job{
 		ID:       "job_1",

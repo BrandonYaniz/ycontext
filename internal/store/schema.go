@@ -52,6 +52,20 @@ var schemaStatements = []string{
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (corpus_id) REFERENCES corpora(id)
 	)`,
+	`CREATE TABLE IF NOT EXISTS nodes (
+		id TEXT PRIMARY KEY,
+		source_id TEXT NOT NULL,
+		parent_id TEXT,
+		kind TEXT NOT NULL,
+		level INTEGER NOT NULL,
+		position INTEGER NOT NULL,
+		start_byte INTEGER NOT NULL,
+		end_byte INTEGER NOT NULL,
+		text TEXT NOT NULL,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (source_id) REFERENCES sources(id),
+		FOREIGN KEY (parent_id) REFERENCES nodes(id)
+	)`,
 	`CREATE TABLE IF NOT EXISTS jobs (
 		id TEXT PRIMARY KEY,
 		kind TEXT NOT NULL,

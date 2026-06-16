@@ -33,6 +33,19 @@ type Source struct {
 	CreatedAt    string
 }
 
+type Node struct {
+	ID        string
+	SourceID  string
+	ParentID  sql.NullString
+	Kind      string
+	Level     int
+	Position  int
+	StartByte int
+	EndByte   int
+	Text      string
+	CreatedAt string
+}
+
 type Job struct {
 	ID        string
 	Kind      string
@@ -142,6 +155,61 @@ func (r *Repository) ListSources(ctx context.Context, corpusID string) ([]Source
 		return nil, err
 	}
 	return sources, nil
+}
+
+func (r *Repository) CreateNode(ctx context.Context, node Node) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO nodes (id, source_id, parent_id, kind, level, position, start_byte, end_byte, text)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		node.ID,
+		node.SourceID,
+		node.ParentID,
+		node.Kind,
+		node.Level,
+		node.Position,
+		node.StartByte,
+		node.EndByte,
+		node.Text,
+	)
+	return err
+}
+
+func (r *Repository) ListSourceNodes(ctx context.Context, sourceID string) ([]Node, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, source_id, parent_id, kind, level, position, start_byte, end_byte, text, created_at
+		 FROM nodes
+		 WHERE source_id = ?
+		 ORDER BY level, position, id`,
+		sourceID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var nodes []Node
+	for rows.Next() {
+		var node Node
+		if err := rows.Scan(
+			&node.ID,
+			&node.SourceID,
+			&node.ParentID,
+			&node.Kind,
+			&node.Level,
+			&node.Position,
+			&node.StartByte,
+			&node.EndByte,
+			&node.Text,
+			&node.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, node)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return nodes, nil
 }
 
 func (r *Repository) CreateJob(ctx context.Context, job Job) error {
