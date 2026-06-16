@@ -251,6 +251,34 @@ func TestListSources(t *testing.T) {
 	}
 }
 
+func TestStartIngest(t *testing.T) {
+	c, done := testClient(t, func(req types.Request) types.Response {
+		if req.Method != "ingest.start" {
+			t.Fatalf("method = %q, want ingest.start", req.Method)
+		}
+		if req.Params["source_id"] != "src_123" || req.Params["max_words"] != float64(2) {
+			t.Fatalf("params = %+v, want source_id and max_words", req.Params)
+		}
+		return types.Response{
+			ID: req.ID,
+			OK: true,
+			Result: types.IngestStartResult{
+				SourceID: "src_123",
+				Chunks:   3,
+			},
+		}
+	})
+	defer done()
+
+	result, err := c.StartIngest(context.Background(), "src_123", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.SourceID != "src_123" || result.Chunks != 3 {
+		t.Fatalf("unexpected ingest result: %+v", result)
+	}
+}
+
 func testClient(t *testing.T, handle func(types.Request) types.Response) (*Client, func()) {
 	t.Helper()
 

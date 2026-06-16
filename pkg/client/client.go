@@ -16,6 +16,7 @@ const (
 	requestCreateCorpus    = "req_corpus_create"
 	requestAddTextSource   = "req_source_add_text"
 	requestListSources     = "req_source_list"
+	requestStartIngest     = "req_ingest_start"
 )
 
 // DialFunc matches net.Dialer.DialContext for testability.
@@ -165,6 +166,25 @@ func (c *Client) ListSources(ctx context.Context, corpusID string) (types.Source
 	var result types.SourceListResult
 	if err := DecodeResult(resp, &result); err != nil {
 		return types.SourceListResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) StartIngest(ctx context.Context, sourceID string, maxWords int) (types.IngestStartResult, error) {
+	resp, err := c.Do(ctx, types.Request{
+		ID:     requestStartIngest,
+		Method: "ingest.start",
+		Params: map[string]any{
+			"source_id": sourceID,
+			"max_words": maxWords,
+		},
+	})
+	if err != nil {
+		return types.IngestStartResult{}, err
+	}
+	var result types.IngestStartResult
+	if err := DecodeResult(resp, &result); err != nil {
+		return types.IngestStartResult{}, err
 	}
 	return result, nil
 }
