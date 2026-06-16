@@ -213,6 +213,44 @@ func TestAddTextSource(t *testing.T) {
 	}
 }
 
+func TestListSources(t *testing.T) {
+	c, done := testClient(t, func(req types.Request) types.Response {
+		if req.Method != "source.list" {
+			t.Fatalf("method = %q, want source.list", req.Method)
+		}
+		if req.Params["corpus_id"] != "cor_123" {
+			t.Fatalf("params = %+v, want corpus_id", req.Params)
+		}
+		return types.Response{
+			ID: req.ID,
+			OK: true,
+			Result: types.SourceListResult{
+				Sources: []types.Source{
+					{
+						ID:           "src_123",
+						CorpusID:     "cor_123",
+						Name:         "chapter-1.txt",
+						DocumentHash: "7376efceaacd85bc1d8dbfdaf8a17fb7c5ce4a31d2be652a52a8e834e09c4c7e",
+						DocumentSize: 17,
+					},
+				},
+			},
+		}
+	})
+	defer done()
+
+	result, err := c.ListSources(context.Background(), "cor_123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Sources) != 1 {
+		t.Fatalf("sources length = %d, want 1", len(result.Sources))
+	}
+	if result.Sources[0].ID != "src_123" {
+		t.Fatalf("source id = %q, want src_123", result.Sources[0].ID)
+	}
+}
+
 func testClient(t *testing.T, handle func(types.Request) types.Response) (*Client, func()) {
 	t.Helper()
 

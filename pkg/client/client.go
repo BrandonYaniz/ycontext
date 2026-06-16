@@ -15,6 +15,7 @@ const (
 	requestCreateWorkspace = "req_workspace_create"
 	requestCreateCorpus    = "req_corpus_create"
 	requestAddTextSource   = "req_source_add_text"
+	requestListSources     = "req_source_list"
 )
 
 // DialFunc matches net.Dialer.DialContext for testability.
@@ -148,6 +149,22 @@ func (c *Client) AddTextSource(ctx context.Context, corpusID, name, text string)
 	var result types.SourceAddResult
 	if err := DecodeResult(resp, &result); err != nil {
 		return types.SourceAddResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) ListSources(ctx context.Context, corpusID string) (types.SourceListResult, error) {
+	resp, err := c.Do(ctx, types.Request{
+		ID:     requestListSources,
+		Method: "source.list",
+		Params: map[string]any{"corpus_id": corpusID},
+	})
+	if err != nil {
+		return types.SourceListResult{}, err
+	}
+	var result types.SourceListResult
+	if err := DecodeResult(resp, &result); err != nil {
+		return types.SourceListResult{}, err
 	}
 	return result, nil
 }
