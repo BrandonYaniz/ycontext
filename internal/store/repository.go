@@ -123,6 +123,24 @@ func (r *Repository) CreateSource(ctx context.Context, source Source) error {
 	return err
 }
 
+func (r *Repository) GetSource(ctx context.Context, id string) (Source, error) {
+	var source Source
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id, corpus_id, name, document_hash, document_size, created_at
+		 FROM sources
+		 WHERE id = ?`,
+		id,
+	).Scan(
+		&source.ID,
+		&source.CorpusID,
+		&source.Name,
+		&source.DocumentHash,
+		&source.DocumentSize,
+		&source.CreatedAt,
+	)
+	return source, err
+}
+
 func (r *Repository) ListSources(ctx context.Context, corpusID string) ([]Source, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, corpus_id, name, document_hash, document_size, created_at

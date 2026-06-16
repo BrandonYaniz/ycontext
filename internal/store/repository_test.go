@@ -47,6 +47,13 @@ func TestRepositoryStoresCorporaSourcesAndJobs(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	source, err := repo.GetSource(ctx, "src_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if source.DocumentHash != "7376efceaacd85bc1d8dbfdaf8a17fb7c5ce4a31d2be652a52a8e834e09c4c7e" {
+		t.Fatalf("document hash = %q", source.DocumentHash)
+	}
 	sources, err := repo.ListSources(ctx, "cor_1")
 	if err != nil {
 		t.Fatal(err)
