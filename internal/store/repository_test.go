@@ -47,6 +47,19 @@ func TestRepositoryStoresCorporaSourcesAndJobs(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	sources, err := repo.ListSources(ctx, "cor_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sources) != 1 {
+		t.Fatalf("sources length = %d, want 1", len(sources))
+	}
+	if sources[0].ID != "src_1" || sources[0].Name != "chapter-1.txt" {
+		t.Fatalf("unexpected source: %+v", sources[0])
+	}
+	if sources[0].DocumentSize != 17 {
+		t.Fatalf("document size = %d, want 17", sources[0].DocumentSize)
+	}
 
 	if err := repo.CreateJob(ctx, Job{
 		ID:       "job_1",

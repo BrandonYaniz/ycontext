@@ -43,6 +43,21 @@ type SourceAddResult struct {
 	DocumentSize int64  `json:"document_size"`
 }
 
+// Source describes source metadata returned over the wire.
+type Source struct {
+	ID           string `json:"id"`
+	CorpusID     string `json:"corpus_id"`
+	Name         string `json:"name"`
+	DocumentHash string `json:"document_hash"`
+	DocumentSize int64  `json:"document_size"`
+	CreatedAt    string `json:"created_at"`
+}
+
+// SourceListResult is the current response payload for listing sources.
+type SourceListResult struct {
+	Sources []Source `json:"sources"`
+}
+
 // WorkspaceCreateResult is the current response payload for workspace creation.
 type WorkspaceCreateResult struct {
 	WorkspaceID string `json:"workspace_id"`

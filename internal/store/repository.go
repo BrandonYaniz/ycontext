@@ -110,6 +110,40 @@ func (r *Repository) CreateSource(ctx context.Context, source Source) error {
 	return err
 }
 
+func (r *Repository) ListSources(ctx context.Context, corpusID string) ([]Source, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, corpus_id, name, document_hash, document_size, created_at
+		 FROM sources
+		 WHERE corpus_id = ?
+		 ORDER BY created_at, id`,
+		corpusID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sources []Source
+	for rows.Next() {
+		var source Source
+		if err := rows.Scan(
+			&source.ID,
+			&source.CorpusID,
+			&source.Name,
+			&source.DocumentHash,
+			&source.DocumentSize,
+			&source.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		sources = append(sources, source)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return sources, nil
+}
+
 func (r *Repository) CreateJob(ctx context.Context, job Job) error {
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO jobs (id, kind, status, target_id, error)
