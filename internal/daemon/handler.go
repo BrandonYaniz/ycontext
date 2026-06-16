@@ -16,6 +16,7 @@ type Repository interface {
 	CreateWorkspace(ctx context.Context, workspace store.Workspace) error
 	CreateCorpus(ctx context.Context, corpus store.Corpus) error
 	CreateSource(ctx context.Context, source store.Source) error
+	ListSources(ctx context.Context, corpusID string) ([]store.Source, error)
 }
 
 type DocumentStore interface {
@@ -77,6 +78,8 @@ func (h Handler) Handle(ctx context.Context, req types.Request) types.Response {
 		return h.createCorpus(ctx, req)
 	case "source.add_text":
 		return h.addTextSource(ctx, req)
+	case "source.list":
+		return h.listSources(ctx, req)
 	default:
 		return errorResponse(req.ID, "method_not_found", "unknown method: "+req.Method)
 	}
@@ -95,6 +98,10 @@ type sourceAddTextParams struct {
 	CorpusID string `json:"corpus_id"`
 	Name     string `json:"name"`
 	Text     string `json:"text"`
+}
+
+type sourceListParams struct {
+	CorpusID string `json:"corpus_id"`
 }
 
 func (h Handler) createWorkspace(ctx context.Context, req types.Request) types.Response {
@@ -207,6 +214,45 @@ func (h Handler) addTextSource(ctx context.Context, req types.Request) types.Res
 			DocumentSize: doc.Size,
 		},
 	}
+}
+
+func (h Handler) listSources(ctx context.Context, req types.Request) types.Response {
+	if h.repository == nil {
+		return errorResponse(req.ID, "unavailable", "storage is not configured")
+	}
+	var params sourceListParams
+	if err := decodeParams(req.Params, &params); err != nil {
+		return errorResponse(req.ID, "invalid_request", err.Error())
+	}
+	if params.CorpusID == "" {
+		return errorResponse(req.ID, "invalid_request", "corpus_id is required")
+	}
+	sources, err := h.repository.ListSources(ctx, params.CorpusID)
+	if err != nil {
+		return errorResponse(req.ID, "internal_error", err.Error())
+	}
+	return types.Response{
+		ID: req.ID,
+		OK: true,
+		Result: types.SourceListResult{
+			Sources: toWireSources(sources),
+		},
+	}
+}
+
+func toWireSources(sources []store.Source) []types.Source {
+	result := make([]types.Source, 0, len(sources))
+	for _, source := range sources {
+		result = append(result, types.Source{
+			ID:           source.ID,
+			CorpusID:     source.CorpusID,
+			Name:         source.Name,
+			DocumentHash: source.DocumentHash,
+			DocumentSize: source.DocumentSize,
+			CreatedAt:    source.CreatedAt,
+		})
+	}
+	return result
 }
 
 func (h Handler) makeID(prefix string) (string, error) {

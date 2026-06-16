@@ -234,6 +234,59 @@ func TestHandleAddTextValidatesParams(t *testing.T) {
 	}
 }
 
+func TestHandleListsSources(t *testing.T) {
+	repo := &fakeRepository{
+		sources: []store.Source{
+			{
+				ID:           "src_1",
+				CorpusID:     "cor_123",
+				Name:         "chapter-1.txt",
+				DocumentHash: "7376efceaacd85bc1d8dbfdaf8a17fb7c5ce4a31d2be652a52a8e834e09c4c7e",
+				DocumentSize: 17,
+				CreatedAt:    "2026-06-14T00:00:00Z",
+			},
+		},
+	}
+	handler := NewStorageHandler(repo)
+
+	resp := handler.Handle(context.Background(), types.Request{
+		ID:     "req_1",
+		Method: "source.list",
+		Params: map[string]any{"corpus_id": "cor_123"},
+	})
+	if !resp.OK {
+		t.Fatalf("response was not ok: %+v", resp)
+	}
+	if repo.listCorpusID != "cor_123" {
+		t.Fatalf("listed corpus id = %q, want cor_123", repo.listCorpusID)
+	}
+
+	var result types.SourceListResult
+	if err := decodeResult(resp, &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Sources) != 1 {
+		t.Fatalf("sources length = %d, want 1", len(result.Sources))
+	}
+	if result.Sources[0].ID != "src_1" || result.Sources[0].DocumentSize != 17 {
+		t.Fatalf("unexpected source: %+v", result.Sources[0])
+	}
+}
+
+func TestHandleListSourcesValidatesParams(t *testing.T) {
+	handler := NewStorageHandler(&fakeRepository{})
+	resp := handler.Handle(context.Background(), types.Request{
+		ID:     "req_1",
+		Method: "source.list",
+	})
+	if resp.OK {
+		t.Fatal("expected error response")
+	}
+	if resp.Error == nil || resp.Error.Code != "invalid_request" {
+		t.Fatalf("unexpected error: %+v", resp.Error)
+	}
+}
+
 func decodeResult(resp types.Response, dst any) error {
 	data, err := json.Marshal(resp.Result)
 	if err != nil {
@@ -246,6 +299,9 @@ type fakeRepository struct {
 	workspace store.Workspace
 	corpus    store.Corpus
 	source    store.Source
+	sources   []store.Source
+
+	listCorpusID string
 }
 
 func (r *fakeRepository) CreateWorkspace(ctx context.Context, workspace store.Workspace) error {
@@ -261,6 +317,11 @@ func (r *fakeRepository) CreateCorpus(ctx context.Context, corpus store.Corpus) 
 func (r *fakeRepository) CreateSource(ctx context.Context, source store.Source) error {
 	r.source = source
 	return nil
+}
+
+func (r *fakeRepository) ListSources(ctx context.Context, corpusID string) ([]store.Source, error) {
+	r.listCorpusID = corpusID
+	return r.sources, nil
 }
 
 type fakeDocumentStore struct {
