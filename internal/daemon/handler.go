@@ -7,6 +7,7 @@ import (
 
 	"github.com/yanizio/ycontext/internal/document"
 	"github.com/yanizio/ycontext/internal/id"
+	"github.com/yanizio/ycontext/internal/ingest"
 	"github.com/yanizio/ycontext/internal/store"
 	"github.com/yanizio/ycontext/internal/version"
 	"github.com/yanizio/ycontext/pkg/types"
@@ -17,10 +18,13 @@ type Repository interface {
 	CreateCorpus(ctx context.Context, corpus store.Corpus) error
 	CreateSource(ctx context.Context, source store.Source) error
 	ListSources(ctx context.Context, corpusID string) ([]store.Source, error)
+	GetSource(ctx context.Context, id string) (store.Source, error)
+	CreateNode(ctx context.Context, node store.Node) error
 }
 
 type DocumentStore interface {
 	Put(ctx context.Context, content []byte) (document.Document, error)
+	Read(ctx context.Context, hash string) ([]byte, error)
 }
 
 type IDFunc func(prefix string) (string, error)
@@ -80,6 +84,8 @@ func (h Handler) Handle(ctx context.Context, req types.Request) types.Response {
 		return h.addTextSource(ctx, req)
 	case "source.list":
 		return h.listSources(ctx, req)
+	case "ingest.start":
+		return h.startIngest(ctx, req)
 	default:
 		return errorResponse(req.ID, "method_not_found", "unknown method: "+req.Method)
 	}
@@ -102,6 +108,11 @@ type sourceAddTextParams struct {
 
 type sourceListParams struct {
 	CorpusID string `json:"corpus_id"`
+}
+
+type ingestStartParams struct {
+	SourceID string `json:"source_id"`
+	MaxWords int    `json:"max_words"`
 }
 
 func (h Handler) createWorkspace(ctx context.Context, req types.Request) types.Response {
@@ -253,6 +264,35 @@ func toWireSources(sources []store.Source) []types.Source {
 		})
 	}
 	return result
+}
+
+func (h Handler) startIngest(ctx context.Context, req types.Request) types.Response {
+	if h.repository == nil || h.documents == nil {
+		return errorResponse(req.ID, "unavailable", "ingestion storage is not configured")
+	}
+	var params ingestStartParams
+	if err := decodeParams(req.Params, &params); err != nil {
+		return errorResponse(req.ID, "invalid_request", err.Error())
+	}
+	if params.SourceID == "" {
+		return errorResponse(req.ID, "invalid_request", "source_id is required")
+	}
+	if params.MaxWords < 1 {
+		return errorResponse(req.ID, "invalid_request", "max_words must be at least 1")
+	}
+
+	result, err := ingest.NewService(h.repository, h.documents).IngestSource(ctx, params.SourceID, params.MaxWords)
+	if err != nil {
+		return errorResponse(req.ID, "internal_error", err.Error())
+	}
+	return types.Response{
+		ID: req.ID,
+		OK: true,
+		Result: types.IngestStartResult{
+			SourceID: result.SourceID,
+			Chunks:   result.Chunks,
+		},
+	}
 }
 
 func (h Handler) makeID(prefix string) (string, error) {

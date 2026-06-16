@@ -58,6 +58,12 @@ type SourceListResult struct {
 	Sources []Source `json:"sources"`
 }
 
+// IngestStartResult is returned when source ingestion starts and completes.
+type IngestStartResult struct {
+	SourceID string `json:"source_id"`
+	Chunks   int    `json:"chunks"`
+}
+
 // WorkspaceCreateResult is the current response payload for workspace creation.
 type WorkspaceCreateResult struct {
 	WorkspaceID string `json:"workspace_id"`

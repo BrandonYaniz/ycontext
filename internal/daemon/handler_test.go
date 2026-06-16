@@ -287,6 +287,60 @@ func TestHandleListSourcesValidatesParams(t *testing.T) {
 	}
 }
 
+func TestHandleStartsIngest(t *testing.T) {
+	repo := &fakeRepository{
+		source: store.Source{
+			ID:           "src_123",
+			DocumentHash: "7376efceaacd85bc1d8dbfdaf8a17fb7c5ce4a31d2be652a52a8e834e09c4c7e",
+		},
+	}
+	docs := &fakeDocumentStore{
+		content: []byte("one two three four five"),
+	}
+	handler := NewIngestHandler(repo, docs)
+
+	resp := handler.Handle(context.Background(), types.Request{
+		ID:     "req_1",
+		Method: "ingest.start",
+		Params: map[string]any{
+			"source_id": "src_123",
+			"max_words": 2,
+		},
+	})
+	if !resp.OK {
+		t.Fatalf("response was not ok: %+v", resp)
+	}
+	if len(repo.nodes) != 3 {
+		t.Fatalf("nodes length = %d, want 3", len(repo.nodes))
+	}
+	if repo.nodes[0].Kind != "rough_chunk" || repo.nodes[0].Text != "one two" {
+		t.Fatalf("unexpected first node: %+v", repo.nodes[0])
+	}
+
+	var result types.IngestStartResult
+	if err := decodeResult(resp, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.SourceID != "src_123" || result.Chunks != 3 {
+		t.Fatalf("unexpected result: %+v", result)
+	}
+}
+
+func TestHandleStartIngestValidatesParams(t *testing.T) {
+	handler := NewIngestHandler(&fakeRepository{}, &fakeDocumentStore{})
+	resp := handler.Handle(context.Background(), types.Request{
+		ID:     "req_1",
+		Method: "ingest.start",
+		Params: map[string]any{"source_id": "src_123"},
+	})
+	if resp.OK {
+		t.Fatal("expected error response")
+	}
+	if resp.Error == nil || resp.Error.Code != "invalid_request" {
+		t.Fatalf("unexpected error: %+v", resp.Error)
+	}
+}
+
 func decodeResult(resp types.Response, dst any) error {
 	data, err := json.Marshal(resp.Result)
 	if err != nil {
@@ -300,6 +354,7 @@ type fakeRepository struct {
 	corpus    store.Corpus
 	source    store.Source
 	sources   []store.Source
+	nodes     []store.Node
 
 	listCorpusID string
 }
@@ -324,6 +379,15 @@ func (r *fakeRepository) ListSources(ctx context.Context, corpusID string) ([]st
 	return r.sources, nil
 }
 
+func (r *fakeRepository) GetSource(ctx context.Context, id string) (store.Source, error) {
+	return r.source, nil
+}
+
+func (r *fakeRepository) CreateNode(ctx context.Context, node store.Node) error {
+	r.nodes = append(r.nodes, node)
+	return nil
+}
+
 type fakeDocumentStore struct {
 	content  []byte
 	document document.Document
@@ -332,4 +396,8 @@ type fakeDocumentStore struct {
 func (s *fakeDocumentStore) Put(ctx context.Context, content []byte) (document.Document, error) {
 	s.content = append([]byte(nil), content...)
 	return s.document, nil
+}
+
+func (s *fakeDocumentStore) Read(ctx context.Context, hash string) ([]byte, error) {
+	return s.content, nil
 }
