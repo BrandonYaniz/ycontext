@@ -90,8 +90,11 @@ func runCorpus(ctx context.Context, stdout io.Writer, cfg config.Config, args []
 }
 
 func runSource(ctx context.Context, stdout io.Writer, cfg config.Config, args []string) error {
+	if len(args) == 2 && args[0] == "list" {
+		return listSources(ctx, stdout, cfg, args[1])
+	}
 	if len(args) != 4 || args[0] != "add-text" {
-		return fmt.Errorf("usage: ycontext source add-text <corpus_id> <name> <file>")
+		return fmt.Errorf("usage: ycontext source add-text <corpus_id> <name> <file>\n       ycontext source list <corpus_id>")
 	}
 	content, err := os.ReadFile(args[3])
 	if err != nil {
@@ -102,5 +105,16 @@ func runSource(ctx context.Context, stdout io.Writer, cfg config.Config, args []
 		return err
 	}
 	fmt.Fprintf(stdout, "source_id: %s\ndocument_hash: %s\ndocument_size: %d\n", result.SourceID, result.DocumentHash, result.DocumentSize)
+	return nil
+}
+
+func listSources(ctx context.Context, stdout io.Writer, cfg config.Config, corpusID string) error {
+	result, err := client.New(cfg.Server.SocketPath).ListSources(ctx, corpusID)
+	if err != nil {
+		return err
+	}
+	for _, source := range result.Sources {
+		fmt.Fprintf(stdout, "%s\t%s\t%d\t%s\n", source.ID, source.Name, source.DocumentSize, source.DocumentHash)
+	}
 	return nil
 }

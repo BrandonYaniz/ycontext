@@ -119,6 +119,18 @@ func TestRunAddsTextSource(t *testing.T) {
 	if !strings.Contains(sourceOut.String(), "document_size: 17") {
 		t.Fatalf("source output = %q, want document size", sourceOut.String())
 	}
+
+	var listOut bytes.Buffer
+	stderr.Reset()
+	if err := run(ctx, []string{"-config", configPath, "source", "list", corpusID}, &listOut, &stderr); err != nil {
+		t.Fatalf("source list: %v stderr=%q", err, stderr.String())
+	}
+	if !strings.Contains(listOut.String(), "chapter-1.txt") {
+		t.Fatalf("source list output = %q, want source name", listOut.String())
+	}
+	if !strings.Contains(listOut.String(), "\t17\t") {
+		t.Fatalf("source list output = %q, want document size", listOut.String())
+	}
 }
 
 func waitForSocket(t *testing.T, path string) {
