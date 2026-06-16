@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
 	"github.com/yanizio/ycontext/internal/config"
 	"github.com/yanizio/ycontext/pkg/client"
@@ -41,6 +42,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return runCorpus(ctx, stdout, cfg, flags.Args()[1:])
 	case "source":
 		return runSource(ctx, stdout, cfg, flags.Args()[1:])
+	case "ingest":
+		return runIngest(ctx, stdout, cfg, flags.Args()[1:])
 	case "":
 		return fmt.Errorf("missing command")
 	default:
@@ -116,5 +119,21 @@ func listSources(ctx context.Context, stdout io.Writer, cfg config.Config, corpu
 	for _, source := range result.Sources {
 		fmt.Fprintf(stdout, "%s\t%s\t%d\t%s\n", source.ID, source.Name, source.DocumentSize, source.DocumentHash)
 	}
+	return nil
+}
+
+func runIngest(ctx context.Context, stdout io.Writer, cfg config.Config, args []string) error {
+	if len(args) != 3 || args[0] != "start" {
+		return fmt.Errorf("usage: ycontext ingest start <source_id> <max_words>")
+	}
+	maxWords, err := strconv.Atoi(args[2])
+	if err != nil {
+		return fmt.Errorf("invalid max_words: %w", err)
+	}
+	result, err := client.New(cfg.Server.SocketPath).StartIngest(ctx, args[1], maxWords)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "source_id: %s\nchunks: %d\n", result.SourceID, result.Chunks)
 	return nil
 }

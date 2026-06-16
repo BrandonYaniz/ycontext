@@ -119,6 +119,7 @@ func TestRunAddsTextSource(t *testing.T) {
 	if !strings.Contains(sourceOut.String(), "document_size: 17") {
 		t.Fatalf("source output = %q, want document size", sourceOut.String())
 	}
+	sourceID := strings.TrimPrefix(strings.Split(sourceOut.String(), "\n")[0], "source_id: ")
 
 	var listOut bytes.Buffer
 	stderr.Reset()
@@ -130,6 +131,15 @@ func TestRunAddsTextSource(t *testing.T) {
 	}
 	if !strings.Contains(listOut.String(), "\t17\t") {
 		t.Fatalf("source list output = %q, want document size", listOut.String())
+	}
+
+	var ingestOut bytes.Buffer
+	stderr.Reset()
+	if err := run(ctx, []string{"-config", configPath, "ingest", "start", sourceID, "2"}, &ingestOut, &stderr); err != nil {
+		t.Fatalf("ingest start: %v stderr=%q", err, stderr.String())
+	}
+	if !strings.Contains(ingestOut.String(), "chunks: 2") {
+		t.Fatalf("ingest output = %q, want chunk count", ingestOut.String())
 	}
 }
 
