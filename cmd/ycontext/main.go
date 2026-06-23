@@ -44,6 +44,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return runSource(ctx, stdout, cfg, flags.Args()[1:])
 	case "ingest":
 		return runIngest(ctx, stdout, cfg, flags.Args()[1:])
+	case "node":
+		return runNode(ctx, stdout, cfg, flags.Args()[1:])
 	case "":
 		return fmt.Errorf("missing command")
 	default:
@@ -135,5 +137,28 @@ func runIngest(ctx context.Context, stdout io.Writer, cfg config.Config, args []
 		return err
 	}
 	fmt.Fprintf(stdout, "source_id: %s\nchunks: %d\n", result.SourceID, result.Chunks)
+	return nil
+}
+
+func runNode(ctx context.Context, stdout io.Writer, cfg config.Config, args []string) error {
+	if len(args) != 2 || args[0] != "list" {
+		return fmt.Errorf("usage: ycontext node list <source_id>")
+	}
+	result, err := client.New(cfg.Server.SocketPath).ListNodes(ctx, args[1])
+	if err != nil {
+		return err
+	}
+	for _, node := range result.Nodes {
+		fmt.Fprintf(
+			stdout,
+			"%s\t%d\t%d:%d\t%s\t%s\n",
+			node.ID,
+			node.Position,
+			node.StartByte,
+			node.EndByte,
+			node.Kind,
+			node.Text,
+		)
+	}
 	return nil
 }

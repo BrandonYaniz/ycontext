@@ -141,6 +141,18 @@ func TestRunAddsTextSource(t *testing.T) {
 	if !strings.Contains(ingestOut.String(), "chunks: 2") {
 		t.Fatalf("ingest output = %q, want chunk count", ingestOut.String())
 	}
+
+	var nodeOut bytes.Buffer
+	stderr.Reset()
+	if err := run(ctx, []string{"-config", configPath, "node", "list", sourceID}, &nodeOut, &stderr); err != nil {
+		t.Fatalf("node list: %v stderr=%q", err, stderr.String())
+	}
+	if !strings.Contains(nodeOut.String(), "\t0\t0:7\trough_chunk\tCall me") {
+		t.Fatalf("node list output = %q, want first rough chunk", nodeOut.String())
+	}
+	if !strings.Contains(nodeOut.String(), "\t1\t8:16\trough_chunk\tIshmael.") {
+		t.Fatalf("node list output = %q, want second rough chunk", nodeOut.String())
+	}
 }
 
 func waitForSocket(t *testing.T, path string) {
