@@ -64,6 +64,25 @@ type IngestStartResult struct {
 	Chunks   int    `json:"chunks"`
 }
 
+// Node describes a stored context-tree node returned over the wire.
+type Node struct {
+	ID        string `json:"id"`
+	SourceID  string `json:"source_id"`
+	ParentID  string `json:"parent_id,omitempty"`
+	Kind      string `json:"kind"`
+	Level     int    `json:"level"`
+	Position  int    `json:"position"`
+	StartByte int    `json:"start_byte"`
+	EndByte   int    `json:"end_byte"`
+	Text      string `json:"text"`
+	CreatedAt string `json:"created_at"`
+}
+
+// NodeListResult is the current response payload for listing source nodes.
+type NodeListResult struct {
+	Nodes []Node `json:"nodes"`
+}
+
 // WorkspaceCreateResult is the current response payload for workspace creation.
 type WorkspaceCreateResult struct {
 	WorkspaceID string `json:"workspace_id"`

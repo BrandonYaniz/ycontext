@@ -341,6 +341,62 @@ func TestHandleStartIngestValidatesParams(t *testing.T) {
 	}
 }
 
+func TestHandleListsNodes(t *testing.T) {
+	repo := &fakeRepository{
+		nodes: []store.Node{
+			{
+				ID:        "nod_1",
+				SourceID:  "src_123",
+				Kind:      "rough_chunk",
+				Level:     0,
+				Position:  0,
+				StartByte: 0,
+				EndByte:   7,
+				Text:      "one two",
+				CreatedAt: "2026-06-23T00:00:00Z",
+			},
+		},
+	}
+	handler := NewStorageHandler(repo)
+
+	resp := handler.Handle(context.Background(), types.Request{
+		ID:     "req_1",
+		Method: "node.list",
+		Params: map[string]any{"source_id": "src_123"},
+	})
+	if !resp.OK {
+		t.Fatalf("response was not ok: %+v", resp)
+	}
+	if repo.listSourceID != "src_123" {
+		t.Fatalf("listed source id = %q, want src_123", repo.listSourceID)
+	}
+
+	var result types.NodeListResult
+	if err := decodeResult(resp, &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Nodes) != 1 {
+		t.Fatalf("nodes length = %d, want 1", len(result.Nodes))
+	}
+	if result.Nodes[0].ID != "nod_1" || result.Nodes[0].Text != "one two" || result.Nodes[0].EndByte != 7 {
+		t.Fatalf("unexpected node: %+v", result.Nodes[0])
+	}
+}
+
+func TestHandleListNodesValidatesParams(t *testing.T) {
+	handler := NewStorageHandler(&fakeRepository{})
+	resp := handler.Handle(context.Background(), types.Request{
+		ID:     "req_1",
+		Method: "node.list",
+	})
+	if resp.OK {
+		t.Fatal("expected error response")
+	}
+	if resp.Error == nil || resp.Error.Code != "invalid_request" {
+		t.Fatalf("unexpected error: %+v", resp.Error)
+	}
+}
+
 func decodeResult(resp types.Response, dst any) error {
 	data, err := json.Marshal(resp.Result)
 	if err != nil {
@@ -357,6 +413,7 @@ type fakeRepository struct {
 	nodes     []store.Node
 
 	listCorpusID string
+	listSourceID string
 }
 
 func (r *fakeRepository) CreateWorkspace(ctx context.Context, workspace store.Workspace) error {
@@ -386,6 +443,11 @@ func (r *fakeRepository) GetSource(ctx context.Context, id string) (store.Source
 func (r *fakeRepository) CreateNode(ctx context.Context, node store.Node) error {
 	r.nodes = append(r.nodes, node)
 	return nil
+}
+
+func (r *fakeRepository) ListSourceNodes(ctx context.Context, sourceID string) ([]store.Node, error) {
+	r.listSourceID = sourceID
+	return r.nodes, nil
 }
 
 type fakeDocumentStore struct {

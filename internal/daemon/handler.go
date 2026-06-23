@@ -20,6 +20,7 @@ type Repository interface {
 	ListSources(ctx context.Context, corpusID string) ([]store.Source, error)
 	GetSource(ctx context.Context, id string) (store.Source, error)
 	CreateNode(ctx context.Context, node store.Node) error
+	ListSourceNodes(ctx context.Context, sourceID string) ([]store.Node, error)
 }
 
 type DocumentStore interface {
@@ -86,6 +87,8 @@ func (h Handler) Handle(ctx context.Context, req types.Request) types.Response {
 		return h.listSources(ctx, req)
 	case "ingest.start":
 		return h.startIngest(ctx, req)
+	case "node.list":
+		return h.listNodes(ctx, req)
 	default:
 		return errorResponse(req.ID, "method_not_found", "unknown method: "+req.Method)
 	}
@@ -113,6 +116,10 @@ type sourceListParams struct {
 type ingestStartParams struct {
 	SourceID string `json:"source_id"`
 	MaxWords int    `json:"max_words"`
+}
+
+type nodeListParams struct {
+	SourceID string `json:"source_id"`
 }
 
 func (h Handler) createWorkspace(ctx context.Context, req types.Request) types.Response {
@@ -293,6 +300,49 @@ func (h Handler) startIngest(ctx context.Context, req types.Request) types.Respo
 			Chunks:   result.Chunks,
 		},
 	}
+}
+
+func (h Handler) listNodes(ctx context.Context, req types.Request) types.Response {
+	if h.repository == nil {
+		return errorResponse(req.ID, "unavailable", "storage is not configured")
+	}
+	var params nodeListParams
+	if err := decodeParams(req.Params, &params); err != nil {
+		return errorResponse(req.ID, "invalid_request", err.Error())
+	}
+	if params.SourceID == "" {
+		return errorResponse(req.ID, "invalid_request", "source_id is required")
+	}
+	nodes, err := h.repository.ListSourceNodes(ctx, params.SourceID)
+	if err != nil {
+		return errorResponse(req.ID, "internal_error", err.Error())
+	}
+	return types.Response{
+		ID: req.ID,
+		OK: true,
+		Result: types.NodeListResult{
+			Nodes: toWireNodes(nodes),
+		},
+	}
+}
+
+func toWireNodes(nodes []store.Node) []types.Node {
+	result := make([]types.Node, 0, len(nodes))
+	for _, node := range nodes {
+		result = append(result, types.Node{
+			ID:        node.ID,
+			SourceID:  node.SourceID,
+			ParentID:  node.ParentID.String,
+			Kind:      node.Kind,
+			Level:     node.Level,
+			Position:  node.Position,
+			StartByte: node.StartByte,
+			EndByte:   node.EndByte,
+			Text:      node.Text,
+			CreatedAt: node.CreatedAt,
+		})
+	}
+	return result
 }
 
 func (h Handler) makeID(prefix string) (string, error) {
