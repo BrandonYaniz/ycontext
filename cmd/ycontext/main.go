@@ -157,7 +157,7 @@ func runNode(ctx context.Context, stdout io.Writer, cfg config.Config, args []st
 			node.StartByte,
 			node.EndByte,
 			node.Kind,
-			node.Text,
+			strconv.Quote(node.Text),
 		)
 	}
 	return nil

@@ -147,10 +147,10 @@ func TestRunAddsTextSource(t *testing.T) {
 	if err := run(ctx, []string{"-config", configPath, "node", "list", sourceID}, &nodeOut, &stderr); err != nil {
 		t.Fatalf("node list: %v stderr=%q", err, stderr.String())
 	}
-	if !strings.Contains(nodeOut.String(), "\t0\t0:7\trough_chunk\tCall me") {
+	if !strings.Contains(nodeOut.String(), "\t0\t0:7\trough_chunk\t\"Call me\"") {
 		t.Fatalf("node list output = %q, want first rough chunk", nodeOut.String())
 	}
-	if !strings.Contains(nodeOut.String(), "\t1\t8:16\trough_chunk\tIshmael.") {
+	if !strings.Contains(nodeOut.String(), "\t1\t8:16\trough_chunk\t\"Ishmael.\"") {
 		t.Fatalf("node list output = %q, want second rough chunk", nodeOut.String())
 	}
 }
