@@ -44,6 +44,17 @@ func TestIngestSourceCreatesRoughChunkNodes(t *testing.T) {
 	if repo.nodes[2].Position != 2 || repo.nodes[2].Text != "five" {
 		t.Fatalf("unexpected final node: %+v", repo.nodes[2])
 	}
+
+	result, err = service.IngestSource(context.Background(), "src_1", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Chunks != 1 {
+		t.Fatalf("second ingest chunks = %d, want 1", result.Chunks)
+	}
+	if len(repo.nodes) != 1 || repo.nodes[0].Text != "one two three four five" {
+		t.Fatalf("nodes were not replaced: %+v", repo.nodes)
+	}
 }
 
 func TestIngestSourceValidatesInputs(t *testing.T) {
@@ -65,8 +76,8 @@ func (r *fakeRepository) GetSource(ctx context.Context, id string) (store.Source
 	return r.source, nil
 }
 
-func (r *fakeRepository) CreateNode(ctx context.Context, node store.Node) error {
-	r.nodes = append(r.nodes, node)
+func (r *fakeRepository) ReplaceRoughChunkNodes(ctx context.Context, sourceID string, nodes []store.Node) error {
+	r.nodes = append([]store.Node(nil), nodes...)
 	return nil
 }
 

@@ -13,7 +13,7 @@ import (
 
 type Repository interface {
 	GetSource(ctx context.Context, id string) (store.Source, error)
-	CreateNode(ctx context.Context, node store.Node) error
+	ReplaceRoughChunkNodes(ctx context.Context, sourceID string, nodes []store.Node) error
 }
 
 type DocumentStore interface {
@@ -65,12 +65,13 @@ func (s Service) IngestSource(ctx context.Context, sourceID string, maxWords int
 		return Result{}, err
 	}
 
+	nodes := make([]store.Node, 0, len(chunks))
 	for _, rough := range chunks {
 		nodeID, err := s.makeID("nod")
 		if err != nil {
 			return Result{}, err
 		}
-		if err := s.repository.CreateNode(ctx, store.Node{
+		nodes = append(nodes, store.Node{
 			ID:        nodeID,
 			SourceID:  source.ID,
 			ParentID:  sql.NullString{},
@@ -80,9 +81,10 @@ func (s Service) IngestSource(ctx context.Context, sourceID string, maxWords int
 			StartByte: rough.StartByte,
 			EndByte:   rough.EndByte,
 			Text:      rough.Text,
-		}); err != nil {
-			return Result{}, err
-		}
+		})
+	}
+	if err := s.repository.ReplaceRoughChunkNodes(ctx, source.ID, nodes); err != nil {
+		return Result{}, err
 	}
 
 	return Result{

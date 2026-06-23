@@ -440,8 +440,8 @@ func (r *fakeRepository) GetSource(ctx context.Context, id string) (store.Source
 	return r.source, nil
 }
 
-func (r *fakeRepository) CreateNode(ctx context.Context, node store.Node) error {
-	r.nodes = append(r.nodes, node)
+func (r *fakeRepository) ReplaceRoughChunkNodes(ctx context.Context, sourceID string, nodes []store.Node) error {
+	r.nodes = append([]store.Node(nil), nodes...)
 	return nil
 }
 

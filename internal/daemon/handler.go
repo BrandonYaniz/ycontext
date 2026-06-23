@@ -19,7 +19,7 @@ type Repository interface {
 	CreateSource(ctx context.Context, source store.Source) error
 	ListSources(ctx context.Context, corpusID string) ([]store.Source, error)
 	GetSource(ctx context.Context, id string) (store.Source, error)
-	CreateNode(ctx context.Context, node store.Node) error
+	ReplaceRoughChunkNodes(ctx context.Context, sourceID string, nodes []store.Node) error
 	ListSourceNodes(ctx context.Context, sourceID string) ([]store.Node, error)
 }
 
