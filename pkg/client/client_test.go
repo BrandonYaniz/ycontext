@@ -279,6 +279,46 @@ func TestStartIngest(t *testing.T) {
 	}
 }
 
+func TestListNodes(t *testing.T) {
+	c, done := testClient(t, func(req types.Request) types.Response {
+		if req.Method != "node.list" {
+			t.Fatalf("method = %q, want node.list", req.Method)
+		}
+		if req.Params["source_id"] != "src_123" {
+			t.Fatalf("params = %+v, want source_id", req.Params)
+		}
+		return types.Response{
+			ID: req.ID,
+			OK: true,
+			Result: types.NodeListResult{
+				Nodes: []types.Node{
+					{
+						ID:        "nod_123",
+						SourceID:  "src_123",
+						Kind:      "rough_chunk",
+						Position:  0,
+						StartByte: 0,
+						EndByte:   7,
+						Text:      "one two",
+					},
+				},
+			},
+		}
+	})
+	defer done()
+
+	result, err := c.ListNodes(context.Background(), "src_123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Nodes) != 1 {
+		t.Fatalf("nodes length = %d, want 1", len(result.Nodes))
+	}
+	if result.Nodes[0].ID != "nod_123" || result.Nodes[0].Text != "one two" {
+		t.Fatalf("unexpected node: %+v", result.Nodes[0])
+	}
+}
+
 func testClient(t *testing.T, handle func(types.Request) types.Response) (*Client, func()) {
 	t.Helper()
 

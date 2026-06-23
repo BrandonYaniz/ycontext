@@ -17,6 +17,7 @@ const (
 	requestAddTextSource   = "req_source_add_text"
 	requestListSources     = "req_source_list"
 	requestStartIngest     = "req_ingest_start"
+	requestListNodes       = "req_node_list"
 )
 
 // DialFunc matches net.Dialer.DialContext for testability.
@@ -185,6 +186,22 @@ func (c *Client) StartIngest(ctx context.Context, sourceID string, maxWords int)
 	var result types.IngestStartResult
 	if err := DecodeResult(resp, &result); err != nil {
 		return types.IngestStartResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) ListNodes(ctx context.Context, sourceID string) (types.NodeListResult, error) {
+	resp, err := c.Do(ctx, types.Request{
+		ID:     requestListNodes,
+		Method: "node.list",
+		Params: map[string]any{"source_id": sourceID},
+	})
+	if err != nil {
+		return types.NodeListResult{}, err
+	}
+	var result types.NodeListResult
+	if err := DecodeResult(resp, &result); err != nil {
+		return types.NodeListResult{}, err
 	}
 	return result, nil
 }
