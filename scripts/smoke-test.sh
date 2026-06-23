@@ -87,6 +87,12 @@ nodes=$("$tmp/ycontext" -config "$config" node list "$source")
 test "$(printf '%s\n' "$nodes" | wc -l | tr -d ' ')" -eq 3
 printf '%s\n' "$nodes" | grep -q 'rough_chunk'
 
+ingest=$("$tmp/ycontext" -config "$config" ingest start "$source" 6)
+printf '%s\n' "$ingest" | grep -q '^chunks: 2$'
+
+nodes=$("$tmp/ycontext" -config "$config" node list "$source")
+test "$(printf '%s\n' "$nodes" | wc -l | tr -d ' ')" -eq 2
+
 stop_daemon
 start_daemon
 
@@ -94,7 +100,7 @@ sources=$("$tmp/ycontext" -config "$config" source list "$corpus")
 printf '%s\n' "$sources" | grep -q "$source"
 
 nodes=$("$tmp/ycontext" -config "$config" node list "$source")
-test "$(printf '%s\n' "$nodes" | wc -l | tr -d ' ')" -eq 3
+test "$(printf '%s\n' "$nodes" | wc -l | tr -d ' ')" -eq 2
 
 stop_daemon
 echo "smoke test passed"
