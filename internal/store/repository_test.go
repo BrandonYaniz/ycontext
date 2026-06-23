@@ -104,6 +104,30 @@ func TestRepositoryStoresCorporaSourcesAndJobs(t *testing.T) {
 	if nodes[1].ID != "nod_2" || nodes[1].StartByte != 8 || nodes[1].EndByte != 17 {
 		t.Fatalf("unexpected second node: %+v", nodes[1])
 	}
+	if err := repo.ReplaceRoughChunkNodes(ctx, "src_1", []Node{
+		{
+			ID:        "nod_3",
+			SourceID:  "src_1",
+			Kind:      "rough_chunk",
+			Level:     0,
+			Position:  0,
+			StartByte: 0,
+			EndByte:   17,
+			Text:      "Call me Ishmael.",
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	nodes, err = repo.ListSourceNodes(ctx, "src_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 1 {
+		t.Fatalf("nodes length after replace = %d, want 1", len(nodes))
+	}
+	if nodes[0].ID != "nod_3" || nodes[0].Text != "Call me Ishmael." {
+		t.Fatalf("unexpected replacement node: %+v", nodes[0])
+	}
 
 	if err := repo.CreateJob(ctx, Job{
 		ID:       "job_1",

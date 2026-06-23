@@ -192,6 +192,39 @@ func (r *Repository) CreateNode(ctx context.Context, node Node) error {
 	return err
 }
 
+func (r *Repository) ReplaceRoughChunkNodes(ctx context.Context, sourceID string, nodes []Node) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM nodes WHERE source_id = ? AND kind = 'rough_chunk' AND level = 0`,
+		sourceID,
+	); err != nil {
+		return err
+	}
+	for _, node := range nodes {
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO nodes (id, source_id, parent_id, kind, level, position, start_byte, end_byte, text)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			node.ID,
+			node.SourceID,
+			node.ParentID,
+			node.Kind,
+			node.Level,
+			node.Position,
+			node.StartByte,
+			node.EndByte,
+			node.Text,
+		); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 func (r *Repository) ListSourceNodes(ctx context.Context, sourceID string) ([]Node, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, source_id, parent_id, kind, level, position, start_byte, end_byte, text, created_at
